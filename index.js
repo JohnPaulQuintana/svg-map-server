@@ -244,18 +244,17 @@ app.post("/send-notification", async (req, res) => {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      if (Array.isArray(response.data.data)) {
-        sentCount += response.data.data.filter(r => r.status === "ok").length;
-      }
+      // Expo returns an array of results
+      const results = Array.isArray(response.data) ? response.data : response.data.data;
 
-      const results = response.data.data;
+      if (!results) throw new Error("No response from Expo push API");
 
+      sentCount += results.filter(r => r.status === "ok").length;
+
+      // Remove invalid tokens
       results.forEach((result, index) => {
-        if (result.status === "error" &&
-          result.details?.error === "DeviceNotRegistered") {
-
+        if (result.status === "error" && result.details?.error === "DeviceNotRegistered") {
           const badToken = batch[index].token;
-
           savedTokens = savedTokens.filter(entry => entry.token !== badToken);
           console.log("Removed invalid token:", badToken);
         }
