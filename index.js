@@ -240,8 +240,8 @@ app.post("/send-notification", async (req, res) => {
 
       // ✅ Wrap in { messages: [...] } for Expo API
       const response = await axios.post(
-        "https://exp.host/--/api/v2/push/send",
-        { messages: messages },
+        "https://exp.host/--/api/v2/push/send-batch",
+        { messages }, // 👈 wrap array in object
         { headers: { "Content-Type": "application/json" } }
       );
 
