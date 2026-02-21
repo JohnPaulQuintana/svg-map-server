@@ -232,23 +232,24 @@ app.post("/send-notification", async (req, res) => {
   try {
     for (const batch of batches) {
       const messages = batch.map((entry) => ({
-        to: entry.token, // ✅ FIXED
+        to: entry.token,
         sound: "default",
         title,
         body,
       }));
 
+      // ✅ Wrap in { messages: [...] } for Expo API
       const response = await axios.post(
         "https://exp.host/--/api/v2/push/send",
-        {messages},
+        { messages },
         { headers: { "Content-Type": "application/json" } }
       );
 
       // Expo returns an array of results
       const results = Array.isArray(response.data) ? response.data : response.data.data;
-
       if (!results) throw new Error("No response from Expo push API");
 
+      // Count successful
       sentCount += results.filter(r => r.status === "ok").length;
 
       // Remove invalid tokens
@@ -261,12 +262,10 @@ app.post("/send-notification", async (req, res) => {
       });
 
       saveTokens();
-
     }
 
     console.log(`Notifications attempted: ${savedTokens.length}, successful: ${sentCount}`);
     res.json({ success: true, attempted: savedTokens.length, sent: sentCount });
-
   } catch (err) {
     console.error("Failed to send notifications:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to send notifications" });
