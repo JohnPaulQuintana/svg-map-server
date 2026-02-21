@@ -216,7 +216,7 @@ app.post("/register-token", (req, res) => {
 // --- Send notification ---
 app.post("/send-notification", async (req, res) => {
   const { title = "Map Update 📍", body = "New map data available!" } = req.body || {};
-
+  console.log("Saved tokens:", savedTokens);
   if (savedTokens.length === 0) {
     return res.status(400).json({ error: "No tokens registered" });
   }
