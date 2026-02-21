@@ -111,32 +111,32 @@ app.get("/maps/:mapId/gids", (req, res) => {
   //   "vector_stairs1_ab2", "Path", "vector_car_icon_5"
   // ];
   const excludeRegex = [
-  /^vector_/,
-  /^design_/,
-  /^STAIRS/,
-  /_icon$/,
-  /^Path$/,
-  /^Group\s*\d+$/i,
-  /^Vector\s*\d+$/i,
-  /^UP_\d+/i,
-  /^UP/i,
-  /^GROUND\b.*(HALL|HALLWAY|FLOOR|PLAN)/i,
-  /^Room$/i,
-  /^walkway_path$/i,
-  /^design_admin$/i,
-  /^design_mapbg$/i,
-  /^stage$/i,
-  /^tesda1$/i,
-  /^pedestrian_gate$/i,
-  /^KIOSK UI$/i,
-  /^main_gate$/i,
-  /^EASTWOODS$/i,
-  /^Vector$/i,
-  /^EASTWOODS GROUNDFLOOR$/i,
-  /^Roll up window$/i,
-  /^Hallway$/i,
-  /^PEDESTRIANâ¨GATE_2$/i,  // fixes the weird chars
-];
+    /^vector_/,
+    /^design_/,
+    /^STAIRS/,
+    /_icon$/,
+    /^Path$/,
+    /^Group\s*\d+$/i,
+    /^Vector\s*\d+$/i,
+    /^UP_\d+/i,
+    /^UP/i,
+    /^GROUND\b.*(HALL|HALLWAY|FLOOR|PLAN)/i,
+    /^Room$/i,
+    /^walkway_path$/i,
+    /^design_admin$/i,
+    /^design_mapbg$/i,
+    /^stage$/i,
+    /^tesda1$/i,
+    /^pedestrian_gate$/i,
+    /^KIOSK UI$/i,
+    /^main_gate$/i,
+    /^EASTWOODS$/i,
+    /^Vector$/i,
+    /^EASTWOODS GROUNDFLOOR$/i,
+    /^Roll up window$/i,
+    /^Hallway$/i,
+    /^PEDESTRIANâ¨GATE_2$/i,  // fixes the weird chars
+  ];
   const gIds = extractAllGIds(svgString, { regex: excludeRegex });
   const allPaths = collectAllPaths(svgString);
 
@@ -196,16 +196,21 @@ function saveTokens() {
 
 // --- Endpoint to register a token ---
 app.post("/register-token", (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(400).json({ error: "Token is required" });
-
-  if (!savedTokens.includes(token)) {
-    savedTokens.push(token);
-    saveTokens();
-    console.log("Saved tokens:", savedTokens);
+  const { deviceId, token } = req.body;
+  if (!deviceId || !token) {
+    return res.status(400).json({ error: "deviceId and token required" });
   }
 
-  res.json({ success: true, totalTokens: savedTokens.length });
+  // Remove old token for this device
+  savedTokens = savedTokens.filter(entry => entry.deviceId !== deviceId);
+
+  savedTokens.push({ deviceId, token });
+
+  saveTokens();
+
+  console.log("Updated tokens:", savedTokens);
+
+  res.json({ success: true });
 });
 
 // --- Send notification ---
@@ -217,7 +222,7 @@ app.post("/send-notification", async (req, res) => {
   }
 
   let sentCount = 0;
-  const batchSize = 100; // Expo allows 100 messages per request
+  const batchSize = 100;
 
   const batches = [];
   for (let i = 0; i < savedTokens.length; i += batchSize) {
@@ -226,22 +231,43 @@ app.post("/send-notification", async (req, res) => {
 
   try {
     for (const batch of batches) {
-      const messages = batch.map((token) => ({
-        to: token,
+      const messages = batch.map((entry) => ({
+        to: entry.token, // ✅ FIXED
         sound: "default",
         title,
         body,
       }));
-      const response = await axios.post("https://exp.host/--/api/v2/push/send", messages, {
-        headers: { "Content-Type": "application/json" },
+
+      const response = await axios.post(
+        "https://exp.host/--/api/v2/push/send",
+        messages,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (Array.isArray(response.data.data)) {
+        sentCount += response.data.data.filter(r => r.status === "ok").length;
+      }
+
+      const results = response.data.data;
+
+      results.forEach((result, index) => {
+        if (result.status === "error" &&
+          result.details?.error === "DeviceNotRegistered") {
+
+          const badToken = batch[index].token;
+
+          savedTokens = savedTokens.filter(entry => entry.token !== badToken);
+          console.log("Removed invalid token:", badToken);
+        }
       });
 
-      // Count successful messages
-      sentCount += Array.isArray(response.data) ? response.data.filter(r => r.status === "ok").length : 0;
+      saveTokens();
+
     }
 
     console.log(`Notifications attempted: ${savedTokens.length}, successful: ${sentCount}`);
     res.json({ success: true, attempted: savedTokens.length, sent: sentCount });
+
   } catch (err) {
     console.error("Failed to send notifications:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to send notifications" });
