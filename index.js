@@ -79,9 +79,8 @@ function extractAllGIds(svgString, { exact = [], prefixes = [], regex = [] } = {
 
   const exactSet = new Set(exact);
 
-  return Array.from(document.querySelectorAll("path[id]"))
-    .filter(path => path.closest("g")) // only paths inside <g>
-    .map(path => cleanId(path.id)) // normalize Unicode
+  return Array.from(document.querySelectorAll("g[id]"))
+    .map(g => cleanId(g.id)) // normalize Unicode
     .filter(id => {
       if (exactSet.has(id)) return false;
       if (prefixes.some(p => id.startsWith(p))) return false;
@@ -123,6 +122,14 @@ app.get("/maps/:mapId/gids", (req, res) => {
   /^UP/i,
   /^GROUND\b.*(HALL|HALLWAY|FLOOR|PLAN)/i,
   /^Room$/i,
+  /^walkway_path$/i,
+  /^design_admin$/i,
+  /^design_mapbg$/i,
+  /^stage$/i,
+  /^tesda1$/i,
+  /^pedestrian_gate$/i,
+  /^KIOSK UI$/i,
+  /^main_gate$/i,
   /^EASTWOODS$/i,
   /^Vector$/i,
   /^EASTWOODS GROUNDFLOOR$/i,
