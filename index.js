@@ -237,6 +237,7 @@ app.post("/send-notification", async (req, res) => {
         title,
         body,
       }));
+      console.log("Sending to Expo:", JSON.stringify(messages, null, 2));
 
       // ✅ Wrap in { messages: [...] } for Expo API
       const response = await axios.post(
